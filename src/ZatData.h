@@ -5,7 +5,7 @@
 #include "client.h"
 #include "UpdateThread.h"
 #include "categories.h"
-#include "Curl.h"
+//#include "Curl.h"
 #include <map>
 
 using namespace std;
@@ -121,7 +121,7 @@ private:
   std::map<std::string, ZatRecordingData*> recordingsData;
   std::map<std::string, std::map<time_t, PVRIptvEpgEntry>*> epgCache;
   int64_t maxRecallSeconds;
-  Curl *curl;
+ // Curl *curl;
   UpdateThread *updateThread;
   std::string uuid;
   Categories categories;

@@ -4,6 +4,8 @@
 #include <sstream>
 #include "tinyxml2/tinyxml2.h"
 #include "p8-platform/sockets/tcp.h"
+#include <kodi/General.h>
+#include <kodi/Filesystem.h>
 #include <map>
 #include <time.h>
 #include <random>
@@ -22,6 +24,10 @@
 #include "to_string.h"
 #endif
 
+#ifdef TARGET_WINDOWS
+#define timegm _mkgmtime
+#endif
+
 using namespace ADDON;
 using namespace std;
 using namespace rapidjson;
@@ -37,22 +43,35 @@ string ZatData::HttpGet(string url, bool isInit)
 
 string ZatData::HttpPost(string url, string postData, bool isInit)
 {
-  int statusCode;
   XBMC->Log(LOG_DEBUG, "Http-Request: %s.", url.c_str());
-  string content = curl->Post(url, postData, statusCode);
 
-  if (statusCode == 403 && !isInit)
+  kodi::vfs::CFile file;
+  if (!file.CURLCreate(url))
+    return false;
+
+  if (!postData.empty())
+    file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "postdata", postData);
+
+  if (!file.CURLOpen(OpenFileFlags::READ_CHUNKED | OpenFileFlags::READ_NO_CACHE) && !isInit)
   {
-    delete curl;
-    curl = new Curl();
     XBMC->Log(LOG_ERROR, "Open URL failed. Try to re-init session.");
-    if (!InitSession())
+    /*if (!InitSession())
     {
       XBMC->Log(LOG_ERROR, "Re-init of session. Failed.");
       return "";
     }
     return curl->Post(url, postData, statusCode);
+    */
+    return "";
   }
+  
+  std::string content;
+  static const unsigned int CHUNKSIZE = 16384;
+  char buf[CHUNKSIZE];
+  size_t nbRead;
+  while ((nbRead = file.Read(buf, CHUNKSIZE)) > 0 && ~nbRead)
+    content.append(buf, nbRead);
+  
   return content;
 }
 
@@ -426,7 +445,6 @@ ZatData::ZatData(std::string u, std::string p, bool favoritesOnly,
     maxRecallSeconds(0), recallEnabled(false), countryCode(""), recordingEnabled(
         false), updateThread(NULL), uuid("")
 {
-  curl = new Curl();
   username = u;
   password = p;
   this->alternativeEpgService = alternativeEpgService;
@@ -448,7 +466,6 @@ ZatData::~ZatData()
     delete item.second;
   }
   channelGroups.clear();
-  delete curl;
 }
 
 bool ZatData::Initialize()
