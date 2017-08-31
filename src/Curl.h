@@ -10,4 +10,5 @@ public:
 private:
   std::string Base64Encode(unsigned char const* in, unsigned int in_len,
       bool urlEncode);
+  static std::string cookie;
 };

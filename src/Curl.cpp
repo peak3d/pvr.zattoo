@@ -1,8 +1,12 @@
 #include "Curl.h"
 #include "client.h"
+#include <kodi/Filesystem.h>
 
 using namespace std;
-using namespace ADDON;
+
+static const string SET_COOKIE = "Set-Cookie";
+
+string Curl::cookie = "";
 
 Curl::Curl()
 {
@@ -14,24 +18,26 @@ Curl::~Curl()
 
 string Curl::Post(string url, string postData, int &statusCode)
 {
-  void* file = XBMC->CURLCreate(url.c_str());
-  if (!file)
+  kodi::vfs::CFile file;
+  if (!file.CURLCreate(url))
   {
     statusCode = 500;
     return "";
   }
 
-  XBMC->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "acceptencoding",
-      "gzip");
+  if (cookie != "") {
+	  file.CURLAddOption(ADDON_CURL_OPTION_HEADER, SET_COOKIE, cookie);
+  }
+
+  file.CURLAddOption(ADDON_CURL_OPTION_HEADER, "acceptencoding", "gzip");
   if (postData.size() != 0)
   {
     string base64 = Base64Encode((const unsigned char *) postData.c_str(),
         postData.size(), false);
-    XBMC->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "postdata",
-        base64.c_str());
+    file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "postdata", base64.c_str());
   }
 
-  if (!XBMC->CURLOpen(file, XFILE::READ_NO_CACHE))
+  if (!file.CURLOpen(READ_NO_CACHE))
   {
     statusCode = 403;
     return "";
@@ -42,13 +48,18 @@ string Curl::Post(string url, string postData, int &statusCode)
   char buf[CHUNKSIZE + 1];
   size_t nbRead;
   string body = "";
-  while ((nbRead = XBMC->ReadFile(file, buf, CHUNKSIZE)) > 0 && ~nbRead)
+  while ((nbRead = file.Read(buf, CHUNKSIZE)) > 0 && ~nbRead)
   {
     buf[nbRead] = 0x0;
     body += buf;
   }
 
-  XBMC->CloseFile(file);
+  if (cookie == "") {
+	  cookie = file.GetProperty(ADDON_FILE_PROPERTY_RESPONSE_HEADER, SET_COOKIE);
+  }
+
+
+  file.Close();
   statusCode = 200;
   return body;
 }
