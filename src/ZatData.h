@@ -121,7 +121,7 @@ private:
   std::map<std::string, ZatRecordingData*> recordingsData;
   std::map<std::string, std::map<time_t, PVRIptvEpgEntry>*> epgCache;
   int64_t maxRecallSeconds;
- // Curl *curl;
+  std::string cookies;
   UpdateThread *updateThread;
   std::string uuid;
   Categories categories;

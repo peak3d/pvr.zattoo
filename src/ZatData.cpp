@@ -4,8 +4,6 @@
 #include <sstream>
 #include "tinyxml2/tinyxml2.h"
 #include "p8-platform/sockets/tcp.h"
-#include <kodi/General.h>
-#include <kodi/Filesystem.h>
 #include <map>
 #include <time.h>
 #include <random>
@@ -45,14 +43,20 @@ string ZatData::HttpPost(string url, string postData, bool isInit)
 {
   XBMC->Log(LOG_DEBUG, "Http-Request: %s.", url.c_str());
 
-  kodi::vfs::CFile file;
-  if (!file.CURLCreate(url))
+  void* file = XBMC->CURLCreate(url.c_str());
+  if (!file)
     return false;
 
   if (!postData.empty())
-    file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "postdata", postData);
+  {
+    std::string b64PostData(Utils::b64_encode(reinterpret_cast<const unsigned char *>(postData.c_str()), postData.size(), false));
+    XBMC->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "postdata", b64PostData.c_str());
+  }
 
-  if (!file.CURLOpen(OpenFileFlags::READ_CHUNKED | OpenFileFlags::READ_NO_CACHE) && !isInit)
+  if (!cookies.empty())
+    XBMC->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "cookie", cookies.c_str());
+
+  if (!XBMC->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE) && !isInit)
   {
     XBMC->Log(LOG_ERROR, "Open URL failed. Try to re-init session.");
     /*if (!InitSession())
@@ -64,14 +68,24 @@ string ZatData::HttpPost(string url, string postData, bool isInit)
     */
     return "";
   }
-  
+
+  char *cookiesPtr = XBMC->GetFileProperty(file, XFILE::FILE_PROPERTY_RESPONSE_HEADER, "set-cookie");
+  if (cookiesPtr && *cookiesPtr)
+  {
+    cookies = cookiesPtr;
+    std::string::size_type paramPos = cookies.find(';');
+    if (paramPos != std::string::npos)
+      cookies.resize(paramPos);
+  }
+  XBMC->FreeString(cookiesPtr);
+
   std::string content;
   static const unsigned int CHUNKSIZE = 16384;
   char buf[CHUNKSIZE];
   size_t nbRead;
-  while ((nbRead = file.Read(buf, CHUNKSIZE)) > 0 && ~nbRead)
+  while ((nbRead = XBMC->ReadFile(file, buf, CHUNKSIZE)) > 0 && ~nbRead)
     content.append(buf, nbRead);
-  
+
   return content;
 }
 
