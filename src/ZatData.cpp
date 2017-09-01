@@ -56,6 +56,8 @@ string ZatData::HttpPost(string url, string postData, bool isInit)
   if (!cookies.empty())
     XBMC->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "cookie", cookies.c_str());
 
+  XBMC->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "acceptencoding", "gzip,deflate");
+
   if (!XBMC->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE) && !isInit)
   {
     XBMC->Log(LOG_ERROR, "Open URL failed. Try to re-init session.");
